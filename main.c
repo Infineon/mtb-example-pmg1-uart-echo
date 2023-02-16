@@ -8,7 +8,7 @@
 *
 *
 *******************************************************************************
-* Copyright 2021-2022, Cypress Semiconductor Corporation (an Infineon company) or
+* Copyright 2021-2023, Cypress Semiconductor Corporation (an Infineon company) or
 * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
 *
 * This software, including source code, documentation and related
@@ -41,35 +41,27 @@
 *******************************************************************************/
 #include "cy_pdl.h"
 #include "cybsp.h"
+#include <stdio.h>
+#include <inttypes.h>
 
 /*******************************************************************************
 * Macros
 *******************************************************************************/
 #define CY_ASSERT_FAILED          (0u)
 
+/* Debug print macro to enable UART print */
+#define DEBUG_PRINT               (0u)
 
 /*******************************************************************************
-* Global Variable
+* Global Variables
 *******************************************************************************/
+#if DEBUG_PRINT
+/* Variable used for tracking the print status */
+volatile bool ENTER_LOOP = true;
+#endif
+
+/* Structure for UART Context */
 cy_stc_scb_uart_context_t CYBSP_UART_context;
-
-/*******************************************************************************
-* Function Name: handle_error
-********************************************************************************
-* Summary:
-* User defined error handling function.
-*
-*******************************************************************************/
-void handle_error(void)
-{
-    /* Disable all interrupts */
-    __disable_irq();
-
-    /* Toggle the user LED state */
-    Cy_GPIO_Inv(CYBSP_USER_LED_PORT, CYBSP_USER_LED_PIN);
-    while(1){}
-}
-
 
 /*******************************************************************************
 * Function Name: main
@@ -105,10 +97,10 @@ int main(void)
     /* Configure and enable the UART peripheral */
     initstatus = Cy_SCB_UART_Init(CYBSP_UART_HW, &CYBSP_UART_config, &CYBSP_UART_context);
 
-    /* Initialization failed. Handle error */
+    /* Initialization failed. Halt the program */
     if(initstatus!=CY_SCB_UART_SUCCESS)
     {
-        handle_error();
+        CY_ASSERT(CY_ASSERT_FAILED);
     }
 
     Cy_SCB_UART_Enable(CYBSP_UART_HW);
@@ -116,16 +108,16 @@ int main(void)
     /* Enable global interrupts */
     __enable_irq();
 
-    /* Transmit Header to the Terminal */
+     /* Sequence to clear screen */
      Cy_SCB_UART_PutString(CYBSP_UART_HW, "\x1b[2J\x1b[;H");
-     Cy_SCB_UART_PutString(CYBSP_UART_HW, "***********************************************************\r\n");
+     /* Print "Uart Echo" */
+     Cy_SCB_UART_PutString(CYBSP_UART_HW, "**********************************\r\n");
      Cy_SCB_UART_PutString(CYBSP_UART_HW, "PMG1 MCU UART transmit and receive\r\n");
-     Cy_SCB_UART_PutString(CYBSP_UART_HW, "***********************************************************\r\n\n");
-     Cy_SCB_UART_PutString(CYBSP_UART_HW, ">> Start typing to see the echo on the screen \r\n\n");
+     Cy_SCB_UART_PutString(CYBSP_UART_HW, "**********************************\r\n\n");
+     Cy_SCB_UART_PutString(CYBSP_UART_HW, ">>Transmit a character to see the receive echo on the screen \r\n\n");
 
     for(;;)
     {
-
         /* Check if there is a character received from the terminal; */
         if (0UL != Cy_SCB_UART_GetNumInRxFifo(CYBSP_UART_HW))
         {
@@ -135,8 +127,15 @@ int main(void)
             {
 
             }
-
         }
+
+#if DEBUG_PRINT
+        if (ENTER_LOOP)
+        {
+            Cy_SCB_UART_PutString(CYBSP_UART_HW, "Entered for loop \r\n");
+            ENTER_LOOP = false;
+        }
+#endif
     }
 }
 
